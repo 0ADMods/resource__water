@@ -27,7 +27,7 @@ const BARTER_RESOURCES = ["food", "wood", "stone", "metal","water"];
 const BARTER_ACTIONS = ["Sell", "Buy"];
 
 // Gate constants
-const GATE_ACTIONS = ["lock", "unlock"];
+const GATE_ACTIONS = ["Lock", "Unlock"];
 
 // The number of currently visible buttons (used to optimise showing/hiding)
 var g_unitPanelButtons = {"Selection": 0, "Queue": 0, "Formation": 0, "Garrison": 0, "Training": 0, "Research": 0, "Barter": 0, "Trading": 0, "Construction": 0, "Command": 0, "Stance": 0, "Gate": 0, "Pack": 0};
@@ -41,7 +41,7 @@ var g_barterSell = 0;
 // Lay out a row of centered buttons (does not work inside a loop like the other function)
 function layoutButtonRowCentered(rowNumber, guiName, startIndex, endIndex, width)
 {
-	var buttonSideLength = Engine.GetGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
+	var buttonSideLength = getGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
 	var buttonSpacer = buttonSideLength+1;
 	var colNumber = 0;
 
@@ -51,8 +51,8 @@ function layoutButtonRowCentered(rowNumber, guiName, startIndex, endIndex, width
 
 	for (var i = startIndex; i < endIndex; i++)
 	{
-		var button = Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]");
-		var icon = Engine.GetGUIObjectByName("unit"+guiName+"Icon["+i+"]");
+		var button = getGUIObjectByName("unit"+guiName+"Button["+i+"]");
+		var icon = getGUIObjectByName("unit"+guiName+"Icon["+i+"]");
 
 		if (button)
 		{
@@ -116,7 +116,7 @@ function layoutRow(objectName, rowNumber, guiName, objectSideWidth, objectSpacer
 
 	for (var i = startIndex; i < endIndex; i++)
 	{
-		var button = Engine.GetGUIObjectByName("unit"+guiName+objectName+"["+i+"]");
+		var button = getGUIObjectByName("unit"+guiName+objectName+"["+i+"]");
 
 		if (button)
 		{
@@ -142,20 +142,13 @@ function setOverlay(object, value)
 /**
  * Format entity count/limit message for the tooltip
  */
-function formatLimitString(trainEntLimit, trainEntCount, trainEntLimitChangers)
+function formatLimitString(trainEntLimit, trainEntCount)
 {
 	if (trainEntLimit == undefined)
 		return "";
-	var text = "\n\n" + sprintf(translate("Current Count: %(count)s, Limit: %(limit)s."), { count: trainEntCount, limit: trainEntLimit });
+	var text = "\n\nCurrent Count: " + trainEntCount + ", Limit: " + trainEntLimit + ".";
 	if (trainEntCount >= trainEntLimit)
 		text = "[color=\"red\"]" + text + "[/color]";
-	for (var c in trainEntLimitChangers)
-	{
-		if (trainEntLimitChangers[c] > 0)
-			text += "\n" + sprintf("%(changer)s enlarges the limit with %(change)s.", { changer: c, change: trainEntLimitChangers[c] });
-		else if (trainEntLimitChangers[c] < 0)
-			text += "\n" + sprintf("%(changer)s lessens the limit with %(change)s.", { changer: c, change: (-trainEntLimitChangers[c]) });
-	}
 	return text;
 }
 
@@ -181,70 +174,25 @@ function formatBatchTrainingString(buildingsCountToTrainFullBatch, fullBatchSize
 	if (buildingsCountToTrainFullBatch > 0)
 	{
 		if (buildingsCountToTrainFullBatch > 1)
-			fullBatchesString = sprintf(translate("%(buildings)s*%(batchSize)s"), {
-				buildings: buildingsCountToTrainFullBatch,
-				batchSize: fullBatchSize
-			});
-		else
-			fullBatchesString = fullBatchSize;
+			fullBatchesString += buildingsCountToTrainFullBatch + "*";
+		fullBatchesString += fullBatchSize;
 	}
 	var remainderBatchString = remainderBatch > 0 ? remainderBatch : "";
 	var batchDetailsString = "";
-	var action = "[font=\"sans-bold-13\"]" + translate("Shift-click") + "[/font][font=\"sans-13\"]"
-
 	// We need to display the batch details part if there is either more than
 	// one building with full batch or one building with the full batch and
 	// another with a partial batch
 	if (buildingsCountToTrainFullBatch > 1 ||
 		(buildingsCountToTrainFullBatch == 1 && remainderBatch > 0))
 	{
-		if (remainderBatch > 0)
-			return "\n[font=\"sans-13\"]" + sprintf(translate("%(action)s to train %(number)s (%(fullBatch)s + %(remainderBatch)s)."), {
-				action: action,
-				number: totalBatchTrainingCount,
-				fullBatch: fullBatchesString,
-				remainderBatch: remainderBatch
-			}) + "[/font]";
-
-		return "\n[font=\"sans-13\"]" + sprintf(translate("%(action)s to train %(number)s (%(fullBatch)s)."), {
-			action: action,
-			number: totalBatchTrainingCount,
-			fullBatch: fullBatchesString
-		}) + "[/font]";
+		batchDetailsString += " (" + fullBatchesString;
+		if (remainderBatchString != "")
+			batchDetailsString += " + " + remainderBatchString;
+		batchDetailsString += ")";
 	}
 
-	return "\n[font=\"sans-13\"]" + sprintf(translate("%(action)s to train %(number)s."), {
-		action: action,
-		number: totalBatchTrainingCount
-	}) + "[/font]";
-}
-
-function getStanceDisplayName(name)
-{
-	var displayName;
-	switch(name)
-	{
-		case "violent":
-			displayName = translate("Violent");
-			break;
-		case "aggressive":
-			displayName = translate("Aggressive");
-			break;
-		case "passive":
-			displayName = translate("Passive");
-			break;
-		case "defensive":
-			displayName = translate("Defensive");
-			break;
-		case "standground":
-			displayName = translate("Standground");
-			break;
-		default:
-			warn(sprintf("Internationalization: Unexpected stance found with code ‘%(stance)s’. This stance must be internationalized.", { stance: name }));
-			displayName = name;
-			break;
-	}
-	return displayName;
+	return "\n[font=\"serif-bold-13\"]Shift-click[/font][font=\"serif-13\"] to train "
+		+ totalBatchTrainingCount + batchDetailsString + ".[/font]";
 }
 
 /**
@@ -361,10 +309,10 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 		// If a tech has been researched it leaves an empty slot
 		if (guiName == RESEARCH && !item)
 		{
-			Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
+			getGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
 			// We also remove the paired tech and the pair symbol
-			Engine.GetGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
-			Engine.GetGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
+			getGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
+			getGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
 			continue;
 		}
 
@@ -432,33 +380,33 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				var name = getEntityNames(template);
 				var tooltip = name;
 				var count = g_Selection.groups.getCount(item);
-				Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
+				getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
 				break;
 
 			case QUEUE:
 				var tooltip = getEntityNames(template);
 				if (item.neededSlots)
-					tooltip += "\n[color=\"red\"]" + translate("Insufficient population capacity:") + "\n[/color]" + sprintf(translate("%(population)s %(neededSlots)s"), { population: getCostComponentDisplayName("population"), neededSlots: item.neededSlots });
+					tooltip += "\n[color=\"red\"]Insufficient population capacity:\n[/color]"+getCostComponentDisplayName("population")+" "+item.neededSlots;
 
 				var progress = Math.round(item.progress*100) + "%";
-				Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (item.count > 1 ? item.count : "");
+				getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (item.count > 1 ? item.count : "");
 
 				if (i == 0)
 				{
-					Engine.GetGUIObjectByName("queueProgress").caption = (item.progress ? progress : "");
-					var size = Engine.GetGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size;
+					getGUIObjectByName("queueProgress").caption = (item.progress ? progress : "");
+					var size = getGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size;
 
 					// Buttons are assumed to be square, so left/right offsets can be used for top/bottom.
 					size.top = size.left + Math.round(item.progress * (size.right - size.left));
-					Engine.GetGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size = size;
+					getGUIObjectByName("unit"+guiName+"ProgressSlider["+i+"]").size = size;
 				}
 				break;
 
 			case GARRISON:
 				var name = getEntityNames(template);
-				var tooltip = sprintf(translate("Unload %(name)s"), { name: name })+ "\n" + translate("Single-click to unload 1. Shift-click to unload all of this type.");
+				var tooltip = "Unload " + name + "\nSingle-click to unload 1. Shift-click to unload all of this type.";
 				var count = garrisonGroups.getCount(item);
-				Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
+				getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 1 ? count : "");
 				break;
 
 			case GATE:
@@ -475,7 +423,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 					tooltip += "\n" + getEntityCostTooltip(template, wallCount);
 
-					var affordableMask = Engine.GetGUIObjectByName("unitGateUnaffordable["+i+"]");
+					var affordableMask = getGUIObjectByName("unitGateUnaffordable["+i+"]");
 					affordableMask.hidden = true;
 
 					var neededResources = Engine.GuiInterfaceCall("GetNeededResources", multiplyEntityCosts(template, wallCount));
@@ -492,17 +440,18 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				break;
 
 			case STANCE:
-				var tooltip = getStanceDisplayName(item);
+			case FORMATION:
+				var tooltip = toTitleCase(item);
 				break;
 
 			case TRAINING:
 				var tooltip = getEntityNamesFormatted(template);
 				var key = Engine.ConfigDB_GetValue("user", "hotkey.session.queueunit." + (i + 1));
 				if (key)
-					tooltip = "[color=\"255 251 131\"][font=\"sans-bold-16\"][" + key + "][/font][/color] " + tooltip;
+					tooltip = "[color=\"255 251 131\"][font=\"serif-bold-16\"][" + key + "][/font][/color] " + tooltip;
 
 				if (template.tooltip)
-					tooltip += "\n[font=\"sans-13\"]" + template.tooltip + "[/font]";
+					tooltip += "\n[font=\"serif-13\"]" + template.tooltip + "[/font]";
 
 				var [buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch] =
 					getTrainingBatchStatus(playerState, unitEntState.id, entType, selection);
@@ -511,9 +460,9 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 				tooltip += "\n" + getEntityCostTooltip(template, trainNum, unitEntState.id);
 
-				var [trainEntLimit, trainEntCount, canBeAddedCount, trainEntLimitChangers] =
+				var [trainEntLimit, trainEntCount, canBeAddedCount] =
 					getEntityLimitAndCount(playerState, entType);
-				tooltip += formatLimitString(trainEntLimit, trainEntCount, trainEntLimitChangers);
+				tooltip += formatLimitString(trainEntLimit, trainEntCount);
 
 				tooltip += "[color=\"255 251 131\"]" + formatBatchTrainingString(buildingsCountToTrainFullBatch, fullBatchSize, remainderBatch) + "[/color]";
 				break;
@@ -521,7 +470,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			case RESEARCH:
 				var tooltip = getEntityNamesFormatted(template);
 				if (template.tooltip)
-					tooltip += "\n[font=\"sans-13\"]" + template.tooltip + "[/font]";
+					tooltip += "\n[font=\"serif-13\"]" + template.tooltip + "[/font]";
 
 				tooltip += "\n" + getEntityCostTooltip(template);
 
@@ -529,7 +478,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				{
 					var tooltip1 = getEntityNamesFormatted(template1);
 					if (template1.tooltip)
-						tooltip1 += "\n[font=\"sans-13\"]" + template1.tooltip + "[/font]";
+						tooltip1 += "\n[font=\"serif-13\"]" + template1.tooltip + "[/font]";
 
 					tooltip1 += "\n" + getEntityCostTooltip(template1);
 				}
@@ -538,14 +487,14 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			case CONSTRUCTION:
 				var tooltip = getEntityNamesFormatted(template);
 				if (template.tooltip)
-					tooltip += "\n[font=\"sans-13\"]" + template.tooltip + "[/font]";
+					tooltip += "\n[font=\"serif-13\"]" + template.tooltip + "[/font]";
 
 				tooltip += "\n" + getEntityCostTooltip(template);
 				tooltip += getPopulationBonusTooltip(template);
 
-				var [entLimit, entCount, canBeAddedCount, entLimitChangers] =
+				var [entLimit, entCount, canBeAddedCount] =
 					getEntityLimitAndCount(playerState, entType);
-				tooltip += formatLimitString(entLimit, entCount, entLimitChangers);
+				tooltip += formatLimitString(entLimit, entCount);
 
 				break;
 
@@ -554,11 +503,11 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				if (item.name == "unload-all")
 				{
 					var count = garrisonGroups.getTotalCount();
-					Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 0 ? count : "");
+					getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (count > 0 ? count : "");
 				}
 				else
 				{
-					Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = "";
+					getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = "";
 				}
 
 				tooltip = (item.tooltip ? item.tooltip : toTitleCase(item.name));
@@ -569,15 +518,15 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 		}
 
 		// Button
-		var button = Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]");
-		var button1 = Engine.GetGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]");
-		var affordableMask = Engine.GetGUIObjectByName("unit"+guiName+"Unaffordable["+i+"]");
-		var affordableMask1 = Engine.GetGUIObjectByName("unit"+guiName+"Unaffordable["+(i+rowLength)+"]");
-		var icon = Engine.GetGUIObjectByName("unit"+guiName+"Icon["+i+"]");
-		var guiSelection = Engine.GetGUIObjectByName("unit"+guiName+"Selection["+i+"]");
-		var pair = Engine.GetGUIObjectByName("unit"+guiName+"Pair["+i+"]");
+		var button = getGUIObjectByName("unit"+guiName+"Button["+i+"]");
+		var button1 = getGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]");
+		var affordableMask = getGUIObjectByName("unit"+guiName+"Unaffordable["+i+"]");
+		var affordableMask1 = getGUIObjectByName("unit"+guiName+"Unaffordable["+(i+rowLength)+"]");
+		var icon = getGUIObjectByName("unit"+guiName+"Icon["+i+"]");
+		var guiSelection = getGUIObjectByName("unit"+guiName+"Selection["+i+"]");
+		var pair = getGUIObjectByName("unit"+guiName+"Pair["+i+"]");
 		button.hidden = false;
-		button.tooltip = tooltip || "";
+		button.tooltip = tooltip;
 
 		// Button Function (need nested functions to get the closure right)
 		// Items can have a callback element that overrides the normal caller-supplied callback function.
@@ -595,14 +544,14 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			{
 				button.onpress = (function(e){ return function() { callback(e) } })(item.bottom);
 
-				var icon1 = Engine.GetGUIObjectByName("unit"+guiName+"Icon["+(i+rowLength)+"]");
+				var icon1 = getGUIObjectByName("unit"+guiName+"Icon["+(i+rowLength)+"]");
 				button1.hidden = false;
 				button1.tooltip = tooltip1;
 				button1.onpress = (function(e){ return function() { callback(e) } })(item.top);
 
 				// when we hover over a pair, the other one gets a red cross over it to show it won't be available any more.
-				var unchosenIcon = Engine.GetGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
-				var unchosenIcon1 = Engine.GetGUIObjectByName("unit"+guiName+"UnchosenIcon["+(i+rowLength)+"]");
+				var unchosenIcon = getGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
+				var unchosenIcon1 = getGUIObjectByName("unit"+guiName+"UnchosenIcon["+(i+rowLength)+"]");
 
 				button1.onmouseenter = (function(e){ return function() { setOverlay(e, true) } })(unchosenIcon);
 				button1.onmouseleave = (function(e){ return function() { setOverlay(e, false) } })(unchosenIcon);
@@ -615,7 +564,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			else
 			{
 				// Hide the overlay.
-				var unchosenIcon = Engine.GetGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
+				var unchosenIcon = getGUIObjectByName("unit"+guiName+"UnchosenIcon["+i+"]");
 				unchosenIcon.hidden = true;
 			}
 		}
@@ -623,9 +572,6 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 		// Get icon image
 		if (guiName == FORMATION)
 		{
-			var formationInfo = Engine.GuiInterfaceCall("GetFormationInfoFromTemplate", {"templateName": item});
-
-			button.tooltip = translate(formationInfo.name);
 			var formationOk = canMoveSelectionIntoFormation(item);
 			var grayscale = "";
 			button.enabled = formationOk;
@@ -634,16 +580,31 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 				grayscale = "grayscale:";
 
 				// Display a meaningful tooltip why the formation is disabled
-				button.tooltip += "\n" + "[color=\"red\"]" + translate(formationInfo.tooltip) + "[/color]";
-			}
+				var requirements = Engine.GuiInterfaceCall("GetFormationRequirements", {
+					"formationName": item
+				});
+
+ 				button.tooltip += " (disabled)";
+				if (requirements.count > 1)
+					button.tooltip += "\n" + requirements.count + " units required";
+				if (requirements.classesRequired)
+				{
+					button.tooltip += "\nOnly units of type";
+					for each (var classRequired in requirements.classesRequired)
+					{
+						button.tooltip += " " + classRequired;
+					}
+					button.tooltip += " allowed.";
+				}
+ 			}
 
 			var formationSelected = Engine.GuiInterfaceCall("IsFormationSelected", {
 				"ents": g_Selection.toList(),
-				"formationTemplate": item
+				"formationName": item
 			});
 
 			guiSelection.hidden = !formationSelected;
-			icon.sprite = "stretched:"+grayscale+"session/icons/"+item+".png";
+			icon.sprite = "stretched:"+grayscale+"session/icons/formations/"+item.replace(/\s+/,'').toLowerCase()+".png";
 
  		}
 		else if (guiName == STANCE)
@@ -666,7 +627,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			// If already a gate, show locking actions
 			if (item.gate)
 			{
-				gateIcon = "icons/lock_" + GATE_ACTIONS[item.locked ? 0 : 1] + "ed.png";
+				gateIcon = "icons/lock_" + GATE_ACTIONS[item.locked ? 0 : 1].toLowerCase() + "ed.png";
 				guiSelection.hidden = item.gate.locked === undefined ? false : item.gate.locked != item.locked;
 			}
 			// otherwise show gate upgrade icon
@@ -705,7 +666,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 			{
 				button.enabled = false;
 				var techName = getEntityNames(GetTechnologyData(template.requiredTechnology));
-				button.tooltip += "\n" + sprintf(translate("Requires %(technology)s"), { technology: techName });
+				button.tooltip += "\nRequires " + techName;
 				grayscale = "grayscale:";
 				affordableMask.hidden = false;
 				affordableMask.sprite = "colour: 0 0 0 127";
@@ -824,7 +785,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 						trainNum = buildingsCountToTrainFullBatch * fullBatchSize + remainderBatch;
 						button_disableable = !Engine.HotkeyIsPressed("selection.remove");
 					}
-					Engine.GetGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (batchTrainingCount > 0) ? batchTrainingCount : "";
+					getGUIObjectByName("unit"+guiName+"Count["+i+"]").caption = (batchTrainingCount > 0) ? batchTrainingCount : "";
 				}
 
 				// Walls have no cost defined.
@@ -866,11 +827,11 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 	var numRows = Math.ceil(numButtons / rowLength);
 
-	var buttonSideLength = Engine.GetGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
+	var buttonSideLength = getGUIObjectByName("unit"+guiName+"Button[0]").size.bottom;
 
 	// We sort pairs upside down, so get the size from the topmost button.
 	if (guiName == RESEARCH)
-		buttonSideLength = Engine.GetGUIObjectByName("unit"+guiName+"Button["+(rowLength*numRows)+"]").size.bottom;
+		buttonSideLength = getGUIObjectByName("unit"+guiName+"Button["+(rowLength*numRows)+"]").size.bottom;
 
 	var buttonSpacer = buttonSideLength+1;
 
@@ -898,7 +859,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 	// Layout pair icons
 	if (guiName == RESEARCH)
 	{
-		var pairSize = Engine.GetGUIObjectByName("unit"+guiName+"Pair[0]").size;
+		var pairSize = getGUIObjectByName("unit"+guiName+"Pair[0]").size;
 		var pairSideWidth = pairSize.right;
 		var pairSideHeight = pairSize.bottom;
 		var pairSpacerHeight = pairSideHeight + 1;
@@ -910,7 +871,7 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 	// Resize Queue panel if needed
 	if (guiName == QUEUE) // or garrison
 	{
-		var panel = Engine.GetGUIObjectByName("unitQueuePanel");
+		var panel = getGUIObjectByName("unitQueuePanel");
 		var size = panel.size;
 		size.top = (UNIT_PANEL_BASE - ((numRows-1)*UNIT_PANEL_HEIGHT));
 		panel.size = size;
@@ -918,15 +879,15 @@ function setupUnitPanel(guiName, usedPanels, unitEntState, playerState, items, c
 
 	// Hide any buttons we're no longer using
 	for (var i = numButtons; i < g_unitPanelButtons[guiName]; ++i)
-		Engine.GetGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
+		getGUIObjectByName("unit"+guiName+"Button["+i+"]").hidden = true;
 
 	// Hide unused pair buttons and symbols
 	if (guiName == RESEARCH)
 	{
 		for (var i = numButtons; i < g_unitPanelButtons[guiName]; ++i)
 		{
-			Engine.GetGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
-			Engine.GetGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
+			getGUIObjectByName("unit"+guiName+"Button["+(i+rowLength)+"]").hidden = true;
+			getGUIObjectByName("unit"+guiName+"Pair["+i+"]").hidden = true;
 		}
 	}
 
@@ -938,23 +899,20 @@ function setupUnitTradingPanel(usedPanels, unitEntState, selection)
 {
 	usedPanels[TRADING] = 1;
 
-	var requiredGoods = unitEntState.trader.requiredGoods;
 	for (var i = 0; i < TRADING_RESOURCES.length; i++)
 	{
 		var resource = TRADING_RESOURCES[i];
-		var button = Engine.GetGUIObjectByName("unitTradingButton["+i+"]");
+		var button = getGUIObjectByName("unitTradingButton["+i+"]");
 		button.size = (i * 46) + " 0 " + ((i + 1) * 46) + " 46";
-		if (resource == requiredGoods)
-			var selectRequiredGoodsData = { "entities": selection, "requiredGoods": undefined };
-		else
-			var selectRequiredGoodsData = { "entities": selection, "requiredGoods": resource };
-		button.onpress = (function(e){ return function() { selectRequiredGoods(e); } })(selectRequiredGoodsData);
+		var selectTradingPreferredGoodsData = { "entities": selection, "preferredGoods": resource };
+		button.onpress = (function(e){ return function() { selectTradingPreferredGoods(e); } })(selectTradingPreferredGoodsData);
 		button.enabled = true;
-		button.tooltip = sprintf(translate("Set/unset %(resource)s as forced trading goods."), { resource: resource });
-		var icon = Engine.GetGUIObjectByName("unitTradingIcon["+i+"]");
-		var selected = Engine.GetGUIObjectByName("unitTradingSelection["+i+"]");
-		selected.hidden = !(resource == requiredGoods);
-		var grayscale = (resource != requiredGoods) ? "grayscale:" : "";
+		button.tooltip = "Set " + resource + " as trading goods";
+		var icon = getGUIObjectByName("unitTradingIcon["+i+"]");
+		var preferredGoods = unitEntState.trader.preferredGoods;
+		var selected = getGUIObjectByName("unitTradingSelection["+i+"]");
+		selected.hidden = !(resource == preferredGoods);
+		var grayscale = (resource != preferredGoods) ? "grayscale:" : "";
 		icon.sprite = "stretched:"+grayscale+"session/icons/resources/" + resource + ".png";
 	}
 }
@@ -978,15 +936,15 @@ function setupUnitBarterPanel(unitEntState, playerState)
 			if (j == 0)
 			{
 				// Display the selection overlay
-				var selection = Engine.GetGUIObjectByName("unitBarter" + action + "Selection["+i+"]");
+				var selection = getGUIObjectByName("unitBarter" + action + "Selection["+i+"]");
 				selection.hidden = !(i == g_barterSell);
 			}
 
 			// We gray out the not selected icons in 'sell' row
 			var grayscale = (j == 0 && i != g_barterSell) ? "grayscale:" : "";
-			var icon = Engine.GetGUIObjectByName("unitBarter" + action + "Icon["+i+"]");
+			var icon = getGUIObjectByName("unitBarter" + action + "Icon["+i+"]");
 
-			var button = Engine.GetGUIObjectByName("unitBarter" + action + "Button["+i+"]");
+			var button = getGUIObjectByName("unitBarter" + action + "Button["+i+"]");
 			button.size = (i * 46) + " 0 " + ((i + 1) * 46) + " 46";
 			var amountToBuy;
 			// We don't display a button in 'buy' row if the same resource is selected in 'sell' row
@@ -1018,7 +976,7 @@ function setupUnitBarterPanel(unitEntState, playerState)
 					var hidden = neededResources ? false : true;
 					for (var ii = 0; ii < BARTER_RESOURCES.length; ii++)
 					{
-						var affordableMask = Engine.GetGUIObjectByName("unitBarterBuyUnaffordable["+ii+"]");
+						var affordableMask = getGUIObjectByName("unitBarterBuyUnaffordable["+ii+"]");
 						affordableMask.hidden = hidden;
 					}
 				}
@@ -1031,7 +989,7 @@ function setupUnitBarterPanel(unitEntState, playerState)
 				button.onpress = (function(exchangeResourcesParameters){ return function() { exchangeResources(exchangeResourcesParameters); } })(exchangeResourcesParameters);
 				amount = amountToBuy;
 			}
-			Engine.GetGUIObjectByName("unitBarter" + action + "Amount["+i+"]").caption = amount;
+			getGUIObjectByName("unitBarter" + action + "Amount["+i+"]").caption = amount;
 		}
 	}
 }
@@ -1100,7 +1058,7 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 				function (item) { performStance(entState.id, item); } );
 		}
 
-		Engine.GetGUIObjectByName("unitBarterPanel").hidden = !entState.barterMarket;
+		getGUIObjectByName("unitBarterPanel").hidden = !entState.barterMarket;
 		if (entState.barterMarket)
 		{
 			usedPanels["Barter"] = 1;
@@ -1120,8 +1078,8 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 		else if (entState.production && entState.production.entities)
 			setupUnitPanel(TRAINING, usedPanels, entState, playerState, trainableEnts,
 				function (trainEntType) { addTrainingToQueue(selection, trainEntType, playerState); } );
-//		else if (entState.trader)
-//			setupUnitTradingPanel(usedPanels, entState, selection);
+		else if (entState.trader)
+			setupUnitTradingPanel(usedPanels, entState, selection);
 		else if (!entState.foundation && entState.gate || hasClass(entState, "LongWall"))
 		{
 			// Allow long wall pieces to be converted to gates
@@ -1136,37 +1094,11 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 					var gateTemplate = getWallGateTemplate(state.id);
 					if (gateTemplate)
 					{
-						var wallName = GetTemplateDataWithoutLocalization(state.template).name.generic;
-						var gateName = GetTemplateDataWithoutLocalization(gateTemplate).name.generic;
-						var tooltipString;
-
-						// For internationalization purposes, when possible, available combinations should be provided
-						// as placeholder-free strings as below.
-						//
-						// The placeholder implementation is provided only so that undetected new combinations of wall
-						// and gate names are not simply printed in English, but as close to a perfect translation as
-						// possible.
-
-						if (wallName === "Wooden Wall" && gateName === "Wooden Gate")
-						{
-							tooltipString = translate("Convert Wooden Wall into Wooden Gate");
-						}
-						else if (wallName === "Stone Wall" && gateName === "City Gate")
-						{
-							tooltipString = translate("Convert Stone Wall into City Gate");
-						}
-						else if (wallName === "Siege Wall" && gateName === "Siege Wall Gate")
-						{
-							tooltipString = translate("Convert Siege Wall into Siege Wall Gate");
-						}
-						else
-						{
-							warn(sprintf("Internationalization: Unexpected combination of ‘%(localizedWall)s’ (%(englishWall)s) and ‘%(localizedGate)s’ (%(englishGate)s). This combination of wall and gate types must be internationalized.", { localizedWall: translate(wallName), englishWall: wallName, localizedGate: translate(gateName), englishGate: gateName }));
-							tooltipString = sprintf(translate("Convert %(wall)s into %(gate)s"), { wall: translate(wallName), gate: translate(gateName) });
-						}
+						var wallName = GetTemplateData(state.template).name.generic;
+						var gateName = GetTemplateData(gateTemplate).name.generic;
 
 						walls.push({
-							"tooltip": tooltipString,
+							"tooltip": "Convert " + wallName + " to " + gateName,
 							"template": gateTemplate,
 							"callback": function (item) { transformWallToGate(item.template); }
 						});
@@ -1176,20 +1108,13 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 					longWallTypes[state.template] = true;
 				}
 				else if (state.gate && !gates.length)
-				{
-					gates.push({
-						"gate": state.gate,
-						"tooltip": translate("Lock Gate"),
-						"locked": true,
-						"callback": function (item) { lockGate(item.locked); }
-					});
-					gates.push({
-						"gate": state.gate,
-						"tooltip": translate("Unlock Gate"),
-						"locked": false,
-						"callback": function (item) { lockGate(item.locked); }
-					});
-				}
+					for (var j = 0; j < GATE_ACTIONS.length; ++j)
+						gates.push({
+							"gate": state.gate,
+							"tooltip": GATE_ACTIONS[j] + " gate",
+							"locked": j == 0,
+							"callback": function (item) { lockGate(item.locked); }
+						});
 				// Show both 'locked' and 'unlocked' as active if the selected gates have both lock states.
 				else if (state.gate && state.gate.locked != gates[0].gate.locked)
 					for (var j = 0; j < gates.length; ++j)
@@ -1234,13 +1159,13 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 				}
 			}
 			if (packButton)
-				items.push({ "packing": false, "packed": false, "tooltip": translate("Pack"), "callback": function() { packUnit(true); } });
+				items.push({ "packing": false, "packed": false, "tooltip": "Pack", "callback": function() { packUnit(true); } });
 			if (unpackButton)
-				items.push({ "packing": false, "packed": true, "tooltip": translate("Unpack"), "callback": function() { packUnit(false); } });
+				items.push({ "packing": false, "packed": true, "tooltip": "Unpack", "callback": function() { packUnit(false); } });
 			if (packCancelButton)
-				items.push({ "packing": true, "packed": false, "tooltip": translate("Cancel Packing"), "callback": function() { cancelPackUnit(true); } });
+				items.push({ "packing": true, "packed": false, "tooltip": "Cancel packing", "callback": function() { cancelPackUnit(true); } });
 			if (unpackCancelButton)
-				items.push({ "packing": true, "packed": true, "tooltip": translate("Cancel Unpacking"), "callback": function() { cancelPackUnit(false); } });
+				items.push({ "packing": true, "packed": true, "tooltip": "Cancel unpacking", "callback": function() { cancelPackUnit(false); } });
 
 			if (items.length)
 				setupUnitPanel(PACK, usedPanels, entState, playerState, items);
@@ -1311,7 +1236,7 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 	var offset = 0;
 	for each (var panelName in g_unitPanels)
 	{
-		var panel = Engine.GetGUIObjectByName("unit" + panelName + "Panel");
+		var panel = getGUIObjectByName("unit" + panelName + "Panel");
 		if (usedPanels[panelName])
 			panel.hidden = false;
 		else
@@ -1323,7 +1248,7 @@ function updateUnitCommands(entState, supplementalDetailsPanel, commandsPanel, s
 function hideUnitCommands()
 {
 	for each (var panelName in g_unitPanels)
-		Engine.GetGUIObjectByName("unit" + panelName + "Panel").hidden = true;
+		getGUIObjectByName("unit" + panelName + "Panel").hidden = true;
 }
 
 // Get all of the available entities which can be trained by the selected entities
@@ -1377,14 +1302,14 @@ function getAllBuildableEntitiesFromSelection()
 }
 
 // Check if the selection can move into formation, and cache the result
-function canMoveSelectionIntoFormation(formationTemplate)
+function canMoveSelectionIntoFormation(formationName)
 {
-	if (!(formationTemplate in g_canMoveIntoFormation))
+	if (!(formationName in g_canMoveIntoFormation))
 	{
-		g_canMoveIntoFormation[formationTemplate] = Engine.GuiInterfaceCall("CanMoveEntsIntoFormation", {
+		g_canMoveIntoFormation[formationName] = Engine.GuiInterfaceCall("CanMoveEntsIntoFormation", {
 			"ents": g_Selection.toList(),
-			"formationTemplate": formationTemplate
+			"formationName": formationName
 		});
 	}
-	return g_canMoveIntoFormation[formationTemplate];
+	return g_canMoveIntoFormation[formationName];
 }
