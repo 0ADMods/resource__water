@@ -1,5 +1,6 @@
-base-water-mod
-==============
+===================================================
+|             Base Water Mod                      |
+===================================================
 
 This is the water resource mod for 0ad
 
@@ -25,7 +26,7 @@ Welcome and please enjoy this mod
 
 
 ===================================================
-						TODO										
+|                     TODO			  |							
 ===================================================
 Update to show water on the main bar with the others
 (Currently says it only allows for 4 resources+population)
