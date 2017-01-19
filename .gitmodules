@@ -1,0 +1,3 @@
+[submodule "Build/0AD_WaterResource_Build"]
+	path = Build/0AD_WaterResource_Build
+	url = ../0AD_WaterResource_Build
